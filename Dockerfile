@@ -10,11 +10,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 	apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Copy application files to the container
-COPY . .
+COPY . . 
 
 # Upgrade pip and install required Python packages in a single step
 RUN pip install --no-cache-dir --upgrade pip && \
-	pip install --no-cache-dir -r server-requirements.txt
+	pip install --no-cache-dir -r requirements.txt
 
 # Expose the required port
 EXPOSE 8000
