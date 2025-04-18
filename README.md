@@ -3,7 +3,7 @@
 > [!WARNING]
 > This is not production ready. Not even close
 > We are missing authentication and any sort of security!
-> That being said, DO NOT DEPLOY TO A PRODUCTINO ENVIRONMENT!!!
+> That being said, DO NOT DEPLOY TO A PRODUCTION ENVIRONMENT!!!
 
 ## What is this branch?
 
