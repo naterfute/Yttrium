@@ -5,9 +5,12 @@ from typing import Optional, Any
 from loguru import logger
 import sys
 
+
+from .metadata import meta, properties
 from src.config import config
 from src.database import interactions
 from robyn import Robyn, jsonify
+
 
 
 
@@ -86,18 +89,6 @@ try:
             if d.status == 'error':  # type: ignore
                 pass
 
-            if d.status == 'finished':  # type: ignore
-                logger.trace(f'Done Downloading "{
-                             d["filename"]}"')  # type: ignore
-                self.StatusStarted = False  # type: ignore
-                self.filename = d['filename']  # type: ignore
-                try:
-                    self.time_elapse = d['elapsed']  # type: ignore
-                except:
-                    pass
-                self.PostProcessorStarted = False
-                self.buildjson()
-
             if d.status == 'downloading':  # type: ignore
                 if not self.StatusStarted:
                     logger.trace(f'Now Downloading "{
@@ -108,18 +99,35 @@ try:
                 self.filename = d['filename']  # type: ignore
                 self.percent = d['_percent_str']  # type: ignore
                 self.eta = d['_eta_str']  # type: ignore
+
                 try:
                     self.time_elapse = d['elapsed']  # type: ignore
                 except Exception:
                     pass
+
                 try:
                     speed = float(d['speed']) # type: ignore
                     self.speed = speed / (1024 * 1024)
                 except Exception:
                     pass
 
-
                 self.buildjson()
+
+            if d.status == 'finished':  # type: ignore
+                logger.trace(f'Done Downloading "{
+                             d["filename"]}"')  # type: ignore
+                self.StatusStarted = False  # type: ignore
+                self.filename = d['filename']  # type: ignore
+
+                try:
+                    self.time_elapse = d['elapsed']  # type: ignore
+                except:
+                    pass
+
+                self.PostProcessorStarted = False
+                self.buildjson()
+
+
         def postprocessor_hooks(self, d):
 
             d = munchify(d)
@@ -132,12 +140,7 @@ try:
                 self.Status = 'Started'
                 self.time_elapse=0
 
-            #    logger.debug(f"""
-            #                {self.Album}
-            #                {self.url}
-            #                {self.title}
-            #                {self.download_path}
-            #                {self.Status}""")
+
 
             if d.status == 'finished':  # type: ignore
                 logger.trace('PostProcessor Hook finished')
@@ -154,6 +157,7 @@ try:
                 self.Status = 'Finished'
                 self.buildjson()
 
+        @property
         def ydl_opts(self):
 
             ydl_opts = {
@@ -166,6 +170,9 @@ try:
                 'writethumbnail': True,
                 'skip_broken': True,
                 'ignoreerrors': True,
+                'extract_flat': False,
+                'playlistrandom': False,
+                'writeinfojson': False,
                 'postprocessors': [
                     {'key': 'FFmpegExtractAudio',
                      'preferredcodec': config.codec,
@@ -176,45 +183,33 @@ try:
 
             return ydl_opts
 
-        def playlist_title_opts(self):
-            ydl_opts = {
-                'quiet': True,
-                'extract_flat': True
-            }
-            return ydl_opts
-
         def startDownload(self, url):
             """Start Download using a url """
-            # try:
+
             logger.info(f'begin download for {url}')
-            with yt_dlp.YoutubeDL(self.playlist_title_opts()) as ydl:
-                result = ydl.extract_info(url, download=False)
 
-                if result is not None:
-                    title_url = result.get('url')
-                    logger.debug(f"Title Opts results: {result}")
-                    self.playlist_url = title_url
-                    self.extractor = result.get('extractor')
+            metadata = meta.retrieve(url)
+            if metadata == None:
+                return
 
-                else:
-                    logger.error(f"Couldn't extract info for URL: {url}")
+            opts = self.ydl_opts
 
-            opts = self.ydl_opts()
-            if self.extractor == "youtube":
-                plopts: str = "%(uploader)s/[%(id)s]"
+            if metadata.extractor == "youtube":
+                pathOpts: str = "%(uploader)s/[%(id)s]"
             else:
-                plopts: str = "%(playlist_title)s/%(playlist_autonumber)s-[%(id)s]"
+                pathOpts: str = "%(playlist_title)s/%(playlist_autonumber)s-[%(id)s]"
 
             if config.restrictfilenames:
-                opts["outtmpl"] = f'downloads/{plopts}-%(title)s.%(ext)s'
+                opts["outtmpl"] = f'downloads/{pathOpts}-%(title)s.%(ext)s'
             else:
-                opts["outtmpl"] = f'downloads/{plopts} - %(title)s.%(ext)s'
+                opts["outtmpl"] = f'downloads/{pathOpts} - %(title)s.%(ext)s'
 
             with yt_dlp.YoutubeDL(opts) as ydl:
                 self.playlist_url = url
                 ydl.download(url)
-                loop = asyncio.get_running_loop()
-                asyncio.create_task((self.db.playlistDownloaded(self.playlist_url, str(self.Album), str(self.extractor))))
+                _ = asyncio.get_running_loop()
+            asyncio.create_task((self.db.playlistDownloaded(self.playlist_url, str(self.Album))))
+
 
 
 

@@ -15,6 +15,7 @@ from alembic import __version__ as alembicversion
 from yt_dlp.version import __version__ as ytversion
 
 from src.database import interactions
+from src.downloader.metadata import meta
 from src.downloader import Downloader
 from src.config import config
 import src.utils as utils
@@ -88,13 +89,15 @@ async def get_server_info(global_dependencies):
     })
 
 
-@app.get("/downloading")
+# TODO: Authentication
+@app.get("/downloads/active")
 async def downloading_info(global_dependencies):
     """Gets info About the current downloading item"""
     infojson = global_dependencies["downloadinfo"]
     return jsonify(infojson)
 
 
+# TODO: Authentication
 @app.get("/latest/:num")
 async def get_latest_downloads(request, path_params: PathParams):
     """Get latest downloaded items
@@ -120,18 +123,21 @@ async def ping(request):
 
 
 
+# TODO: Authentication
 @app.post("/download/:url")
 async def download(request, path_params: PathParams):
     """Takes a url and downloads the supplied video/song/playlist"""
     url: str = path_params['url']
-    logger.error(url)
-    return await interactions.createEntry(url)
+    metadata = meta.retrieve(url, flat=True)
+    if metadata == None:
+        return "Failed to Fetch Metadata"
+    return await interactions.createEntry(url, metadata[0].extractor)
 
 
 @app.post("/login")
 async def login():
     """Logs the user into the app and supplies them with a jwt"""
-    pass
+    await interactions.newUser("test", "test", "test")
 
 @app.post("/register")
 async def register():

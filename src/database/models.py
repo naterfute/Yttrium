@@ -1,3 +1,4 @@
+
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy import Column, String, Integer, Sequence, TIMESTAMP, Boolean, Enum, select, ForeignKey, update
 from sqlalchemy.sql import func
@@ -41,4 +42,13 @@ class Users(Base):
     username = Column(String(50), unique=True)
     password = Column(String(500))
     salt = Column(String(100))
-    admin = Column(Boolean(False))
+    admin = Column(Boolean(False), default=False)
+
+class Authors(Base):
+    """Table for Storing Known Channels and the path they are located at"""
+    __tablename__ = "Authors"
+    id = Column(Integer, autoincrement=True, primary_key=True)
+    author = Column(String, unique=True)
+    path = Column(String, unique=False)
+
+

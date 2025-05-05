@@ -7,6 +7,7 @@ from urllib.parse import urlparse, parse_qs
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine, async_sessionmaker
 
 from typing import Any, TypedDict
+from enum import Enum
 
 from bcrypt import gensalt
 import argon2
@@ -16,8 +17,22 @@ from loguru import logger
 
 from src.config import config
 
-from src.database.models import Requests, Downloaded, Users
+from src.database.models import Requests, Downloaded, Users, Authors
 
+
+
+async def remakeInteraction():
+    logger.error("Remaking Interactions")
+    interactions()
+    await interactions.connect()
+    logger.error(interactions.engine)
+
+class DBConn(int, Enum):
+
+
+    DISCONNECTED = 0
+    CONNECTED = 1
+    FAILURE = 2
 
 
 class DBInfo(TypedDict):
@@ -32,11 +47,10 @@ class DBTypes():
     mariadb: DBInfo = {"database": "mysql", "driver": "aiomysql", "port": 3306}
     sqlite: DBInfo = {"database": "sqlite", "driver": "aiosqlite", "port": 0}
 
-
-
 class interactions:
     engine: AsyncEngine
     engineType: DBInfo = DBTypes.postgresql
+    status: DBConn = DBConn.DISCONNECTED
 
     username: str = "default"
     password: str = "default"
@@ -55,15 +69,15 @@ class interactions:
     @classmethod
     async def setPassword(cls, password) -> None:
         cls.password = password
-    
+
     @classmethod
     async def setHost(cls, host) -> None:
         cls.host = host
-    
+
     @classmethod
     async def setPort(cls, port) -> None:
         cls.port = port
-    
+
     @classmethod
     async def setDatabase(cls, database) -> None:
         cls.database = database
@@ -96,11 +110,15 @@ class interactions:
 
 
             cls.AsyncSession = async_sessionmaker(cls.engine, class_=AsyncSession, expire_on_commit=False)
+            cls.status = DBConn.CONNECTED
 
 
         except Exception as e:
             logger.error("Failed to connect to the database!")
             logger.error(e)
+            cls.status = DBConn.FAILURE
+            exit()
+
         if not isinstance(cls.engine, AsyncEngine):
             logger.error(f"engine Responded with type: {type(cls.engine)}")
             exit()
@@ -111,6 +129,7 @@ class interactions:
     async def disconnect(cls) -> int:
         try:
             await cls.engine.dispose()
+            cls.status = DBConn.DISCONNECTED
             return 1
         except Exception as e:
             logger.error(e)
@@ -120,12 +139,12 @@ class interactions:
     @classmethod
     async def reconnect(cls) -> int:
         """
-            Attempts to reconnect to the database if testcon fails
+            Disconnects and reconnects to database
             ---
         """
         try:
-            await cls.disconnect()
-            await cls.connect()
+            await remakeInteraction()
+
             return 1
         except Exception as e:
             logger.error(e)
@@ -134,32 +153,43 @@ class interactions:
     @classmethod
     async def testcon(cls) -> int:
         """
-            Tests connection to the datbabase
+            Tests connection to the database
             ---
             Returns 0 if failed
             Returns 1 if Success
+            ---
         """
 
         try:
-            async with cls.engine.connect() as connection:
-                logger.error(connection)
-                return 1
+            # logger.critical(type(cls.engine))
+            isengine = isinstance(cls.engine, AsyncEngine)
+            async with cls.AsyncSession() as session:
+                result = await session.execute(select(1))
+                if result.scalar() == 1:
+                    return 1
+                else:
+                    return 0
         except Exception as e:
-            logger.error(f"Connection failed: {str(e)}")
-            return 0
+            cls.status = DBConn.DISCONNECTED
+            logger.error(f"Connection failed: {str(e)}\n Retrying")
+            return await cls.reconnect()
 
     @classmethod
     async def createEntry(
         cls,
-        uri: str
-    ) -> dict[str, dict[str, str]]:
+        uri: str,
+        extractor: str
+    ) -> dict[str, dict[str, str]] | None:
         """
             Creates a new entry in the requests table to download once it's called in queue
             ---
         """
         try:
+            if await cls.testcon() == 0:
+                return 
+
             async with cls.AsyncSession() as session:
-                new_entry = Requests(url=uri)
+                new_entry = Requests(url=uri, extractor=extractor)
                 session.add(new_entry)
                 await session.commit()
                 logger.trace(f"New Request with ID: {new_entry.id}")
@@ -167,10 +197,10 @@ class interactions:
                 return {
                         'data': {
                         'message': f'New request with ID: {new_entry.id} has been created',
-                        'error': "None"
                     }
                 }
         except DuplicateColumnError as e:
+            logger.debug(e)
             return {
                 'data':{
                     'message': f'Duplicate Entry. Link already exists',
@@ -178,6 +208,7 @@ class interactions:
                 }
             }
         except IntegrityError as e:
+            logger.debug(e)
             return {
                 'data':{
                     'message': f'Duplicate Entry. Link already exists',
@@ -194,6 +225,9 @@ class interactions:
             Fetches next eligible item for download from the database
             ---
         """
+        if await cls.testcon() == 0:
+            return 
+
         query = (
             select(Requests)
             .where(Requests.queue_status == 'queued')
@@ -235,6 +269,7 @@ class interactions:
             ---
         """
         try:
+            await cls.testcon()
             async with cls.AsyncSession() as session:
                 newItem = Downloaded(playlist_url=playlisturl, url=url, title=title, path=download_path, elapsed=str(elapsed))
                 session.add(newItem)
@@ -249,18 +284,17 @@ class interactions:
             cls,
             url: str,
             name: str,
-            extractor: str
     ) -> None:
         """
             Takes a playlist id and set's it's status to completed in the db  
-
             ---
         """
         try:
+            await cls.testcon()
             query = (
                 update(Requests)
                 .where(Requests.url==url)
-                .values(title=name, extractor=extractor, download_time=sqlfunc.now(), queue_status="completed")
+                .values(title=name, download_time=sqlfunc.now(), queue_status="completed")
 
             )
             async with cls.AsyncSession() as session:
@@ -283,7 +317,16 @@ class interactions:
             Creates a new entry in the database for a new user
             ---
         """
-        pass
+        try:
+            async with cls.AsyncSession() as session:
+                newUser = Users(username=username, password=hash, salt=salt)
+                session.add(newUser)
+                await session.commit()
+                logger.trace(f"New User with username of: {username}")
+        except Exception as e:
+            logger.error(e)
+
+
 
     @classmethod
     async def fetchUser(cls, username: str) -> None:
@@ -301,5 +344,62 @@ class interactions:
             ---
         """
         pass
+
+    @classmethod
+    async def newAuthor(cls, author_name) -> None:
+        """
+            Adds a new author to the database for future reference
+            ---
+        """
+        try:
+            async with cls.AsyncSession() as session:
+                newAuthor = Authors(author=author_name)
+                session.add(newAuthor)
+                await session.commit()
+                logger.trace(f"New User with username of: {author_name}")
+        except Exception as e:
+            logger.error(e)
+
+    @classmethod
+    async def deleteAuthor(cls, author_name) -> None:
+        """
+            Deletes specified author from the database in a cascade delete
+            ---
+        """
+        pass
+
+    @classmethod
+    async def fetchAuthor(cls, author_name) -> Authors | None:
+        """
+            Searches database for reference to this author
+            ---
+        """
+        if await cls.testcon() == 0:
+            return 
+
+        query = (
+            select(Authors)
+            .where(Authors.author == author_name)
+            .limit(1)
+        )
+        try:
+            async with cls.AsyncSession() as session:
+                result = await session.execute(query)
+                item: Requests = result.scalar_one_or_none()
+                logger.debug(f"""
+                             result: {result.__dict__}
+                             item: {item}
+                """)
+
+                if isinstance(item, Authors):
+                    logger.debug(item)
+                    return item
+                elif item == None:
+                    return None
+
+        except Exception as e:
+            logger.error(f"Error occured when fetching an Author: {e}")
+            return None
+
 
 
