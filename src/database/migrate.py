@@ -42,5 +42,5 @@ def migrateDb(
         return 1
     except Exception as e:
         logger.error(e)
-        return 0
+        exit(0)
 
