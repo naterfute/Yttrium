@@ -21,7 +21,7 @@ once it's ready for production use
 
 > [!IMPORTANT]
 > Migrations are handled automatically.
-> Using A very cool library called [alembic](https://pypi.org/project/alembic
+> Using A very cool library called [alembic](https://pypi.org/project/alembic)
 > This does mean that you can go up as much as you want as many times as you want skipping as many versions as you want.
 > but going down can and **WILL** make your app unusable and possibly corrupt all the data in it
 
