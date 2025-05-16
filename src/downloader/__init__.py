@@ -12,7 +12,8 @@ from src.database import interactions
 from robyn import Robyn, jsonify
 
 
-
+unkown_artist = "unknown_artist"
+unknown_album = "unkown_album"
 
 
 class robyn:
@@ -173,10 +174,12 @@ try:
                 'extract_flat': False,
                 'playlistrandom': False,
                 'writeinfojson': False,
+                'keepvideo': False,
                 'postprocessors': [
                     {'key': 'FFmpegExtractAudio',
                      'preferredcodec': config.codec,
-                     'preferredquality': 'best'},
+                     'preferredquality': 'best'
+                     },
                     {'add_metadata': 'True', 'key': 'FFmpegMetadata'},
                     {'already_have_thumbnail': False, 'key': 'EmbedThumbnail'}
                 ]}
@@ -188,42 +191,76 @@ try:
 
             logger.info(f'begin download for {url}')
 
-
+            logger.trace(f'retrieving metadata')
             metadata = meta.retrieve(url)
-            if type(metadata) == Generator:
-                pass
-            else:
+            if type(metadata) == None:
+                logger.error("metadata is None, returning")
                 return
+
+            elif type(metadata) == list:
+                pass
+
+            else:
+                logger.error("Returning")
+                logger.error(type(metadata))
+                logger.error(metadata)
+                return
+
+
+            logger.trace(f'Gettings options')
 
             opts = self.ydl_opts
 
+
+            logger.trace(f'Gettings Metadata')
+
             for data in metadata:
-                if data.extractor == "youtube":
-                    # NOTE: Single Video
-                    pathOpts: str = "%(uploader)s/[%(id)s]"
-                elif data.extractor == "youtube:playlist" and data.album != None:
-                    # NOTE: Playlist
-                    pathOpts: str = "%(uploader)s/[%(id)s]"
-                elif data.extractor == "youtube:playlist":
-                    # NOTE: Album
-                    pathOpts: str = "%(uploader)s/[%(id)s]"
+                logger.debug(data)
+                if data.extractor == "youtube" and data.author and data.album == None:
+                    # NOTE: Single Video Authored, No Album
+                    pathOpts: str = f"{data.author}/{unknown_album}/[%(id)s]"
+                    logger.trace(1)
+
+                elif data.extractor == "youtube" and data.author and data.album:
+                    # NOTE: Single Video Authored, With Album
+                    pathOpts: str = f"{data.author}/{data.album}/[%(id)s]"
+                    logger.trace(2)
+
+                elif data.extractor == "youtube:playlist" and data.author and data.album != None:
+                    # NOTE: Playlist, No Album, with Artist
+                    pathOpts: str = f"{data.author}/{unknown_album}/[%(id)s]"
+                    logger.trace(3)
+
+                elif data.extractor == "youtube:playlist" and data.author:
+                    # NOTE: Playlist, With Album
+                    pathOpts: str = f"{data.author}/{data.album}/[%(id)s]"
+                    logger.trace(4)
+
+                elif data.extractor == "youtube:playlist" and data.album and data.author == None:
+                    # NOTE: Playlist, no Author with Album(shouldn't be possible?)
+                    pathOpts: str = f"{unkown_artist}/{data.album}/[%(id)s]"
+                    logger.trace(5)
+
+
+                # WARN: These are only last resort. These paths will make it extremly hard for apps such as plex/jellyfin
+                # to correctly index your library
+
+                else: 
+                    pathOpts: str = f"{unkown_artist}/{unknown_album}/[%(id)s]"
+                    logger.trace(6)
+
+
+                if config.restrictfilenames:
+                    opts["outtmpl"] = f'downloads/{pathOpts}{data.sanatized_title}.%(ext)s'
                 else:
-                    # NOTE: Default on failure of above
-                    pathOpts: str = "%(uploader)s/[%(id)s]"
+                    opts["outtmpl"] = f'downloads/{pathOpts} {data.sanatized_title}.%(ext)s'
 
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    self.playlist_url = url
+                    ydl.download(url)
+                    _ = asyncio.get_running_loop()
 
-            if config.restrictfilenames:
-                opts["outtmpl"] = f'downloads/{pathOpts}-%(title)s.%(ext)s'
-            else:
-                opts["outtmpl"] = f'downloads/{pathOpts} - %(title)s.%(ext)s'
-
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                self.playlist_url = url
-                ydl.download(url)
-                _ = asyncio.get_running_loop()
-            asyncio.create_task((self.db.playlistDownloaded(self.playlist_url, str(self.Album))))
-
-
+                asyncio.create_task((self.db.playlistDownloaded(self.playlist_url, str(self.Album))))
 
 
         def buildjson(self):
@@ -238,9 +275,6 @@ try:
                 "Speed": f"{self.speed}",
                 "eta": f"{self.eta}"}
             robyn.robyn["downloadinfo"] = buildjson
-
-
-
 
 except Exception as e:
     logger.error(e)

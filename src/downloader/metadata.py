@@ -4,6 +4,7 @@ from pydantic import BaseModel as Base
 from pprint import pprint
 from typing import Generator, Any
 import re
+from src.config import config
 
 class properties:
 
@@ -35,7 +36,7 @@ class properties:
 
 class meta:
     @staticmethod
-    def retrieve(url: str, flat: bool = False) -> list[properties.metadata] | Generator[properties.metadata, Any, None] |  None:
+    def retrieve(url: str, flat: bool = False) -> list[properties.metadata] |  None:
         """
             Retrieves metadata for the specified url such as
             ---
@@ -62,7 +63,6 @@ class meta:
 
             data: list[properties.metadata] = []
             for x in extracted:
-                #logger.error(x)
                 creators=x.get('creators')
                 artists=x.get('artists')
                 album=x.get('album')
@@ -96,7 +96,6 @@ class meta:
                     channel=channel,
                     verified=verified
                 ))
-                logger.error(data)
             return data
 
     @staticmethod
@@ -165,5 +164,8 @@ class meta:
         clean_title = re.sub(r'\s*[\(\[]\s*.+\s*[\)\]]', '', clean_title)
         clean_title = re.sub(r'\s*[|]\s*.+$', '', clean_title)
         clean_title = re.sub(r'\s+', ' ', clean_title).strip()
+        if config.restrictfilenames:
+            clean_title = re.sub(r'\s+', '-', clean_title).strip()
+
         
         return clean_title if clean_title else title
