@@ -26,3 +26,11 @@ to find out.
 To use the migrations, you don't have to do anything. The program will deal with them
 by it's self!
 
+
+## Future Plans
+
+- [ ] More advanced metadata manager
+- [ ] Web GUI for making requests
+- [ ] PWA for mobile app support
+
+- [ ] Basically Lidarr but for youtube only?
