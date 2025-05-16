@@ -1,7 +1,7 @@
 import asyncio
 import yt_dlp
 from munch import munchify
-from typing import Optional, Any
+from typing import Generator, Optional, Any
 from loguru import logger
 import sys
 
@@ -188,16 +188,29 @@ try:
 
             logger.info(f'begin download for {url}')
 
+
             metadata = meta.retrieve(url)
-            if metadata == None:
+            if type(metadata) == Generator:
+                pass
+            else:
                 return
 
             opts = self.ydl_opts
 
-            if metadata.extractor == "youtube":
-                pathOpts: str = "%(uploader)s/[%(id)s]"
-            else:
-                pathOpts: str = "%(playlist_title)s/%(playlist_autonumber)s-[%(id)s]"
+            for data in metadata:
+                if data.extractor == "youtube":
+                    # NOTE: Single Video
+                    pathOpts: str = "%(uploader)s/[%(id)s]"
+                elif data.extractor == "youtube:playlist" and data.album != None:
+                    # NOTE: Playlist
+                    pathOpts: str = "%(uploader)s/[%(id)s]"
+                elif data.extractor == "youtube:playlist":
+                    # NOTE: Album
+                    pathOpts: str = "%(uploader)s/[%(id)s]"
+                else:
+                    # NOTE: Default on failure of above
+                    pathOpts: str = "%(uploader)s/[%(id)s]"
+
 
             if config.restrictfilenames:
                 opts["outtmpl"] = f'downloads/{pathOpts}-%(title)s.%(ext)s'
