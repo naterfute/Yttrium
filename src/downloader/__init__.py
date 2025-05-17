@@ -241,7 +241,6 @@ try:
                     pathOpts: str = f"{unkown_artist}/{data.album}/[%(id)s]"
                     logger.trace(5)
 
-
                 # WARN: These are only last resort. These paths will make it extremly hard for apps such as plex/jellyfin
                 # to correctly index your library
 

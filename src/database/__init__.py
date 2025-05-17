@@ -1,3 +1,4 @@
+from sys import exception
 from sqlalchemy import except_, insert, select, update
 import sqlalchemy
 from sqlalchemy.orm import sessionmaker
@@ -16,6 +17,7 @@ from loguru import logger
 
 
 from src.config import config
+
 
 from src.database.models import Requests, Downloaded, Users, Authors
 
@@ -312,7 +314,7 @@ class interactions:
             username: str,
             hash: str,
             salt: str
-    ) -> None:
+    ) -> int:
         """
             Creates a new entry in the database for a new user
             ---
@@ -323,30 +325,55 @@ class interactions:
                 session.add(newUser)
                 await session.commit()
                 logger.trace(f"New User with username of: {username}")
+                return 1
         except Exception as e:
             logger.error(e)
+            return 0
 
 
 
     @classmethod
-    async def fetchUser(cls, username: str) -> None:
+    async def fetchUser(cls, username: str) -> Users | None:
         """
         Fetches a user from the database
         ---
         """
-        pass
+
+        query = (
+            select(Users)
+            .where(Users.username == username)
+            .limit(1)
+        )
+
+        try:
+            async with cls.AsyncSession() as session:
+                result = await session.execute(query)
+                user: Users = result.scalar_one_or_none()
+
+                if result == None:
+                    return None
+                else:
+                    return user
+
+        except Exception as e:
+            print(e)
+            return
 
 
     @classmethod
-    async def verifyUser(cls, username, password) -> None:
+    async def verifyUser(cls, username, password) -> Users | None:
         """
             Verify A username and hash against it in the database
             ---
         """
-        pass
+        user = await cls.fetchUser(username)
+        if user is None:
+            return
+        return user
+
 
     @classmethod
-    async def newAuthor(cls, author_name) -> None:
+    async def newAuthor(cls, author_name) -> int:
         """
             Adds a new author to the database for future reference
             ---
@@ -357,8 +384,11 @@ class interactions:
                 session.add(newAuthor)
                 await session.commit()
                 logger.trace(f"New User with username of: {author_name}")
+                return 1
+
         except Exception as e:
             logger.error(e)
+            return 0
 
     @classmethod
     async def deleteAuthor(cls, author_name) -> None:
