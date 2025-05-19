@@ -4,7 +4,7 @@ from munch import munchify
 from typing import Generator, Optional, Any
 from loguru import logger
 import sys
-
+from enum import Enum
 
 from .metadata import meta, properties
 from src.config import config
@@ -13,7 +13,18 @@ from robyn import Robyn, jsonify
 
 
 unkown_artist = "unknown_artist"
-unknown_album = "unkown_album"
+unknown_album = "unknown_album"
+
+
+class shared_data(int, Enum):
+
+    UNKNOWN = 0         # NOTE: I can't find any sort of corolation or it's so bad it errored out
+    SOLO = 1            # NOTE: Each item is it's own serpate thing. probably a playlist
+    SHARED_COMPLETE = 2 # NOTE: All Data eg; Albums and Artists shared
+    SHARED_AUTHORS = 3  # NOTE: Shared authors eg; Only artists are shared between them all
+    SHARED_ALBUMS = 4   # NOTE: Shared Albums eg; Only album names are shared between them all
+
+    NO_SHARED_ALBUMS = 5# NOTE: No Shared Albums eg; some may have the same album but not all
 
 
 class robyn:
@@ -62,7 +73,7 @@ try:
         port = None
         download_path = None
         Status = None
-        filename = None
+        filename = ""
         time_elapse = None
         percent = None
         eta = None
@@ -73,6 +84,7 @@ try:
         Album = None
         downloading = False
         speed = None
+        sanatized_title = ""
 
         def __init__(
             self,
@@ -97,7 +109,7 @@ try:
                     self.StatusStarted = True
 
                 self.Status = 'Downloading'
-                self.filename = d['filename']  # type: ignore
+                self.filename: str = d['filename']  # type: ignore
                 self.percent = d['_percent_str']  # type: ignore
                 self.eta = d['_eta_str']  # type: ignore
 
@@ -186,13 +198,62 @@ try:
 
             return ydl_opts
 
-        def startDownload(self, url):
+        def stringifyAuthors(self, authors: list):
+            returnauthors: str = ''
+            for author in authors[:-1]:
+                returnauthors += f"{author} "
+            returnauthors += f"{authors[-1]}"
+
+        def normifyMetadata(self, metadata: list[properties.metadata]) -> shared_data:
+            """
+            detects common data through-out all itmes got through metadata
+            """
+            known_authors: dict[str, list[str]] = {}
+            known_albums: dict[str, int] = {}
+
+            albumMatch: bool = True
+
+            for item in metadata:
+                if item.author is not None:
+                    for loc, value in enumerate(item.author):
+                        known_authors[f"{loc}"].append(value)
+
+                if item.album is not None:
+                    if known_albums.get(item.album) is None:
+                        known_albums[item.album] = len(known_albums) + 1
+                    else:
+                        known_albums[item.album] += 1
+
+            return shared_data.UNKNOWN
+
+        def matchAuthors(self, metadata: list[properties.metadata]) -> shared_data:
+            known_albums: dict[str, int] = {}
+
+            albumMatch: bool = True
+
+            for item in metadata:
+                if item.album is not None:
+                    if known_albums.get(item.album) is None:
+                        known_albums[item.album] = len(known_albums) + 1
+                    else:
+                        known_albums[item.album] += 1
+            if len(known_albums) <= 1:
+                albumMatch = False
+
+            if albumMatch:
+                return shared_data.SHARED_ALBUMS
+            else:
+                return shared_data.NO_SHARED_ALBUMS
+
+
+        def startDownload(self, url: str):
             """Start Download using a url """
 
             logger.info(f'begin download for {url}')
 
             logger.trace(f'retrieving metadata')
             metadata = meta.retrieve(url)
+            logger.error(metadata)
             if type(metadata) == None:
                 logger.error("metadata is None, returning")
                 return
@@ -214,6 +275,8 @@ try:
 
             logger.trace(f'Gettings Metadata')
 
+            first_known_artist: str
+
             for data in metadata:
                 logger.debug(data)
                 if data.extractor == "youtube" and data.author and data.album == None:
@@ -226,7 +289,7 @@ try:
                     pathOpts: str = f"{data.author}/{data.album}/[%(id)s]"
                     logger.trace(2)
 
-                elif data.extractor == "youtube:playlist" and data.author and data.album != None:
+                elif data.extractor == "youtube:playlist" and data.author and data.album is not None:
                     # NOTE: Playlist, No Album, with Artist
                     pathOpts: str = f"{data.author}/{unknown_album}/[%(id)s]"
                     logger.trace(3)
@@ -249,17 +312,20 @@ try:
                     logger.trace(6)
 
 
-                if config.restrictfilenames:
-                    opts["outtmpl"] = f'downloads/{pathOpts}{data.sanatized_title}.%(ext)s'
-                else:
-                    opts["outtmpl"] = f'downloads/{pathOpts} {data.sanatized_title}.%(ext)s'
-
-                with yt_dlp.YoutubeDL(opts) as ydl:
-                    self.playlist_url = url
-                    ydl.download(url)
-                    _ = asyncio.get_running_loop()
-
-                asyncio.create_task((self.db.playlistDownloaded(self.playlist_url, str(self.Album))))
+                self.playlist_url = url
+                try:
+                    for x in metadata:
+                        if config.restrictfilenames:
+                            opts["outtmpl"] = f'downloads/{pathOpts}{x.sanatized_title}.%(ext)s'
+                        else:
+                            opts["outtmpl"] = f'downloads/{pathOpts} {x.sanatized_title}.%(ext)s'
+                        with yt_dlp.YoutubeDL(opts) as ydl:
+                            ydl.download(x.url)
+                            _ = asyncio.get_running_loop()
+                    asyncio.create_task((self.db.playlistDownloaded(self.playlist_url, str(self.Album))))
+                except Exception as e:
+                    logger.error(e)
+                    return
 
 
         def buildjson(self):
