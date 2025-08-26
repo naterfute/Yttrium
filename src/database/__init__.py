@@ -3,9 +3,19 @@ from sqlalchemy import except_, insert, select, update
 import sqlalchemy
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func as sqlfunc
-from sqlalchemy.exc import DuplicateColumnError, DBAPIError, IntegrityError, OperationalError
+from sqlalchemy.exc import (
+  DuplicateColumnError,
+  DBAPIError,
+  IntegrityError,
+  OperationalError,
+)
 from urllib.parse import urlparse, parse_qs
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, AsyncEngine, async_sessionmaker
+from sqlalchemy.ext.asyncio import (
+  create_async_engine,
+  AsyncSession,
+  AsyncEngine,
+  async_sessionmaker,
+)
 
 from typing import Any, TypedDict
 from enum import Enum
@@ -109,7 +119,9 @@ class interactions:
           pool_pre_ping=True,
         )
 
-      cls.AsyncSession = async_sessionmaker(cls.engine, class_=AsyncSession, expire_on_commit=False)
+      cls.AsyncSession = async_sessionmaker(
+        cls.engine, class_=AsyncSession, expire_on_commit=False
+      )
       cls.status = DBConn.CONNECTED
 
     except Exception as e:
@@ -173,7 +185,9 @@ class interactions:
       return await cls.reconnect()
 
   @classmethod
-  async def createEntry(cls, uri: str, extractor: str) -> dict[str, dict[str, str]] | None:
+  async def createEntry(
+    cls, uri: str, extractor: str
+  ) -> dict[str, dict[str, str]] | None:
     """
     Creates a new entry in the requests table to download once it's called in queue
     ---
@@ -195,10 +209,14 @@ class interactions:
         }
     except DuplicateColumnError as e:
       logger.debug(e)
-      return {'data': {'message': f'Duplicate Entry. Link already exists', 'error': '3000'}}
+      return {
+        'data': {'message': f'Duplicate Entry. Link already exists', 'error': '3000'}
+      }
     except IntegrityError as e:
       logger.debug(e)
-      return {'data': {'message': f'Duplicate Entry. Link already exists', 'error': '3000'}}
+      return {
+        'data': {'message': f'Duplicate Entry. Link already exists', 'error': '3000'}
+      }
 
   @classmethod
   async def fetchNextItem(cls) -> Requests | None:
@@ -209,7 +227,12 @@ class interactions:
     if await cls.testcon() == 0:
       return
 
-    query = select(Requests).where(Requests.queue_status == 'queued').order_by(Requests.id.asc()).limit(1)
+    query = (
+      select(Requests)
+      .where(Requests.queue_status == 'queued')
+      .order_by(Requests.id.asc())
+      .limit(1)
+    )
     try:
       async with cls.AsyncSession() as session:
         result = await session.execute(query)
@@ -230,7 +253,9 @@ class interactions:
       return None
 
   @classmethod
-  async def newDownloaded(cls, playlisturl: Any, url: Any, title: Any, download_path: Any, elapsed: Any) -> None:
+  async def newDownloaded(
+    cls, playlisturl: Any, url: Any, title: Any, download_path: Any, elapsed: Any
+  ) -> None:
     """
     Creates a new entry in the Downloaded Table
     and marks it downloaded with all relevent info
@@ -239,7 +264,13 @@ class interactions:
     try:
       await cls.testcon()
       async with cls.AsyncSession() as session:
-        newItem = Downloaded(playlist_url=playlisturl, url=url, title=title, path=download_path, elapsed=str(elapsed))
+        newItem = Downloaded(
+          playlist_url=playlisturl,
+          url=url,
+          title=title,
+          path=download_path,
+          elapsed=str(elapsed),
+        )
         session.add(newItem)
         await session.commit()
         logger.trace(f'New Download with ID: {newItem.id}')
@@ -259,7 +290,11 @@ class interactions:
     """
     try:
       await cls.testcon()
-      query = update(Requests).where(Requests.url == url).values(title=name, download_time=sqlfunc.now(), queue_status='completed')
+      query = (
+        update(Requests)
+        .where(Requests.url == url)
+        .values(title=name, download_time=sqlfunc.now(), queue_status='completed')
+      )
       async with cls.AsyncSession() as session:
         await session.execute(query)
 
