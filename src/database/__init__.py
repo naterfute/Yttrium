@@ -63,11 +63,11 @@ class interactions:
   engineType: DBInfo = DBTypes.postgresql
   status: DBConn = DBConn.DISCONNECTED
 
-  username: str = 'default'
-  password: str = 'default'
-  host: str = 'localhost'
-  port: int = 0
-  database: str = 'youtube'
+  username: str = config.db.user
+  password: str = config.db.password
+  host: str = config.db.host
+  port: int = config.db.port
+  database: str = config.db.db
 
   @classmethod
   async def setEnginetype(cls, etype: DBInfo):
