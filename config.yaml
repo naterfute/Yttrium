@@ -1,14 +1,10 @@
 host: localhost
-port: 5000
 
-username: default
-password: default
-
-debug: True
-trace: True
+debug: False
+trace: False
 
 ratelimit: 2000000 #KiloBytes
-codec: flac #? flac, opus, mp3, aac, alac, best
+codec: opus #? flac, opus, mp3, aac, alac, best
 restrictfilenames: True
 
 
