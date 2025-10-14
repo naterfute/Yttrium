@@ -146,44 +146,23 @@ class interactions:
       logger.error(e)
       return 0
 
-  @classmethod
-  async def reconnect(cls) -> int:
-    """
-    Disconnects and reconnects to database
-    ---
-    """
-    try:
-      await remakeInteraction()
+    @classmethod
+    async def reconnect(cls) -> int:
+      """
+      Disconnects and reconnects to database
+      ---
+      """
 
-      return 1
-    except Exception as e:
-      logger.error(e)
-      return 0
+      try:
+        if hasattr(cls, 'engine') and cls.engine:
+          await cls.engine.dispose()
 
-  @classmethod
-  async def testcon(cls) -> int:
-    """
-    Tests connection to the database
-    ---
-    Returns 0 if failed
-    Returns 1 if Success
-    ---
-    """
-
-    try:
-      # logger.critical(type(cls.engine))
-      isengine = isinstance(cls.engine, AsyncEngine)
-      async with cls.AsyncSession() as session:
-        result = await session.execute(select(1))
-        if result.scalar() == 1:
-          return 1
-        else:
-          return 0
-        await session.close()
-    except Exception as e:
-      cls.status = DBConn.DISCONNECTED
-      logger.error(f'Connection failed: {str(e)}\n Retrying')
-      return await cls.reconnect()
+        await cls.connect()
+        return 1
+      except Exception as e:
+        logger.error(f'Reconnection failed: {e}')
+        cls.status = DBConn.FAILURE
+        return 0
 
   @classmethod
   async def checkDuplicates(cls, url: str) -> bool:
@@ -219,9 +198,6 @@ class interactions:
     ---
     """
     try:
-      if await cls.testcon() == 0:
-        return
-
       async with cls.AsyncSession() as session:
         new_entry = Requests(url=uri, extractor=extractor)
         session.add(new_entry)
@@ -251,8 +227,6 @@ class interactions:
     Fetches next eligible item for download from the database
     ---
     """
-    if await cls.testcon() == 0:
-      return
 
     query = (
       select(Requests)
@@ -290,7 +264,6 @@ class interactions:
     ---
     """
     try:
-      await cls.testcon()
       async with cls.AsyncSession() as session:
         newItem = Downloaded(
           playlist_url=playlisturl,
@@ -318,7 +291,6 @@ class interactions:
     ---
     """
     try:
-      await cls.testcon()
       query = (
         update(Requests)
         .where(Requests.url == url)
@@ -419,8 +391,6 @@ class interactions:
     Searches database for reference to this author
     ---
     """
-    if await cls.testcon() == 0:
-      return
 
     query = select(Authors).where(Authors.author == author_name).limit(1)
     try:
