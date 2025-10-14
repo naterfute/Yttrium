@@ -166,7 +166,6 @@ try:
 
       if d.status == 'finished':  # type: ignore
         logger.trace('PostProcessor Hook finished')
-        logger.error('Finished Downloading')
         if not self.PostProcessorStarted:
           loop = asyncio.get_running_loop()
           result = asyncio.create_task(
@@ -178,7 +177,6 @@ try:
               elapsed=self.time_elapse,
             )
           )
-          logger.error(result)
 
           self.PostProcessorStarted = True
           self.Status = 'Finished'
@@ -348,7 +346,6 @@ try:
 
         self.playlist_url = url
         index = 0
-        logger.error(f'Download Metadata: {len(metadata)}')
         for x in metadata:
           if config.restrictfilenames:
             opts['outtmpl'] = (
