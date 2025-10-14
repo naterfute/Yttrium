@@ -7,6 +7,7 @@ import sys
 from enum import Enum
 
 import musicbrainzngs
+import functools
 
 from .metadata import meta, properties
 from src.config import config
@@ -165,9 +166,10 @@ try:
 
       if d.status == 'finished':  # type: ignore
         logger.trace('PostProcessor Hook finished')
+        logger.error('Finished Downloading')
         if not self.PostProcessorStarted:
-          _ = asyncio.get_running_loop()
-          asyncio.create_task(
+          loop = asyncio.get_running_loop()
+          result = asyncio.create_task(
             self.db.newDownloaded(
               playlisturl=self.playlist_url,
               url=self.url,
@@ -176,16 +178,18 @@ try:
               elapsed=self.time_elapse,
             )
           )
+          logger.error(result)
 
           self.PostProcessorStarted = True
-        self.Status = 'Finished'
+          self.Status = 'Finished'
+
         self.buildjson()
 
     @property
     def ydl_opts(self):
       ydl_opts = {
         'ratelimit': config.ratelimit,  # Kilobytes
-        'verbose': True,
+        'verbose': True if config.debug is True else False,
         'cookiefile': 'cookies.txt',
         'restrictfilenames': config.restrictfilenames,
         'logger': MyLogger(),
@@ -260,7 +264,7 @@ try:
       else:
         return False
 
-    def startDownload(self, url: str):
+    async def startDownload(self, url: str):
       """Start Download using a url"""
 
       logger.info(f'begin download for {url}')
@@ -340,23 +344,24 @@ try:
           pathOpts: str = f'{unkown_artist}/{unknown_album}/'
           logger.trace(6)
 
-        pathOpts = pathOpts.replace(' ', '-') + '[%(id)s]--'
+        pathOpts = pathOpts.replace(' ', '-')
 
         self.playlist_url = url
         index = 0
+        logger.error(f'Download Metadata: {len(metadata)}')
         for x in metadata:
           if config.restrictfilenames:
-            opts['outtmpl'] = f'downloads/{pathOpts}{index}-{x.sanatized_title}.%(ext)s'
+            opts['outtmpl'] = (
+              f'downloads/{pathOpts}{index}--[%(id)s]--{x.sanatized_title}.%(ext)s'
+            )
           else:
             opts['outtmpl'] = f'downloads/{pathOpts}{index} {x.sanatized_title}.%(ext)s'
           with yt_dlp.YoutubeDL(opts) as ydl:  # type: ignore
             ydl.download(x.url)
-            _ = asyncio.get_running_loop()
           index += 1
-        # TODO: Change this from self.album to something more reliable, like something included from metadata gathering?
-        asyncio.create_task(
-          (self.db.playlistDownloaded(self.playlist_url, str(self.Album)))
-        )
+          if index == len(metadata):
+            break
+        await self.db.playlistDownloaded(self.playlist_url, str(self.Album))
 
     def buildjson(self):
       buildjson: dict = {

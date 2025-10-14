@@ -245,6 +245,8 @@ class interactions:
         if isinstance(item, Requests):
           logger.trace(item)
           return item
+        else:
+          return None
 
     except Exception as e:
       # logger.debug(f'Failed to fetch next item {e}')
@@ -260,6 +262,8 @@ class interactions:
     ---
     """
     try:
+      logger.trace(f'Marking video: {url} as downloaded')
+      logger.error(f'Marking video: {url} as downloaded')
       async with cls.AsyncSession() as session:
         newItem = Downloaded(
           playlist_url=playlisturl,
@@ -285,6 +289,7 @@ class interactions:
     Takes a playlist id and set's it's status to completed in the db
     ---
     """
+    logger.trace(f'Marking playlist: {url} downloaded')
     try:
       query = (
         update(Requests)

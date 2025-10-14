@@ -67,14 +67,18 @@ async def startup_handler():
 
 
 def scanDatabaseSync():
+  logger.debug('Starting Database Sync')
+
   asyncio.run(scanDatabase())
 
 
 async def scanDatabase():
+  await interactions.connect()
+  logger.trace('Database Sync Started')
   next_item = await interactions.fetchNextItem()
   if next_item is not None:
     manager = Downloader()
-    manager.startDownload(str(next_item.url))
+    await manager.startDownload(str(next_item.url))
 
 
 @app.get('/info')
