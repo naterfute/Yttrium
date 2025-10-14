@@ -266,13 +266,13 @@ try:
       logger.info(f'begin download for {url}')
 
       logger.trace('retrieving metadata')
-      meta.retrieve(url)
+      metadata = meta.retrieve(url)
 
       if type(metadata) == None:
-        logger.error('metadata is None, returning')
+        logger.trace('metadata is None, returning')
         return
       elif metadata == []:
-        logger.error('metadata is Empty, returning')
+        logger.trace('metadata is Empty, returning')
         return
 
       elif type(metadata) == list:
