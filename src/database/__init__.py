@@ -247,7 +247,7 @@ class interactions:
           return item
 
     except Exception as e:
-      logger.error(f'Failed to fetch next item {e}')
+      # logger.debug(f'Failed to fetch next item {e}')
       return None
 
   @classmethod
