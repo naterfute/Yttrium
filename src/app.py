@@ -8,7 +8,8 @@ from datetime import datetime
 from loguru import logger
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
+from apscheduler.schedulers.background import BackgroundScheduler
+import asyncio
 
 from robyn import __version__ as robynversion
 from sqlalchemy import __version__ as alchversion
@@ -55,13 +56,18 @@ utils.initapp(app)
 async def startup_handler():
   try:
     await interactions.connect()
-    scheduler = AsyncIOScheduler()
+    # scheduler = AsyncIOScheduler()
+    scheduler = BackgroundScheduler()
 
-    scheduler.add_job(scanDatabase, 'interval', seconds=5)
+    scheduler.add_job(scanDatabaseSync, 'interval', seconds=5)
     scheduler.start()
   except Exception as e:
     logger.error(e)
     logger.error('Failed to Start')
+
+
+def scanDatabaseSync():
+  asyncio.run(scanDatabase())
 
 
 async def scanDatabase():
@@ -136,11 +142,22 @@ async def download(request, path_params: PathParams):
   """Takes a url and downloads the supplied video/song/playlist"""
   url: str = path_params['url']
 
-  metadata = meta.retrieve(url, flat=True)
-  if metadata is None:
-    return 'Failed to Fetch Metadata'
-  if metadata[0].extractor is None:
-    return 'Failed to Fetch Metadata'
+  # TODO: check against the database before getting metadata
+
+  duplicates: bool = await interactions.checkDuplicates(url)
+  if duplicates:
+    logger.trace('Url Duplicate')
+    return {
+      'data': {'message': f'Duplicate Entry. Link already exists', 'error': '3000'}
+    }
+  try:
+    metadata = meta.retrieve(url, flat=True)
+    if metadata is None:
+      return 'Failed to Fetch Metadata'
+    if metadata[0].extractor is None:
+      return 'Failed to Fetch Metadata'
+  except Exception:
+    return {'data': {'message': 'Failed to Fetch Metadata', 'error': '2001'}}
 
   return await interactions.createEntry(url, metadata[0].extractor)
 

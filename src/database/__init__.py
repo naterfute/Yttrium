@@ -175,6 +175,7 @@ class interactions:
       isengine = isinstance(cls.engine, AsyncEngine)
       async with cls.AsyncSession() as session:
         result = await session.execute(select(1))
+        await session.close()
         if result.scalar() == 1:
           return 1
         else:
@@ -183,6 +184,31 @@ class interactions:
       cls.status = DBConn.DISCONNECTED
       logger.error(f'Connection failed: {str(e)}\n Retrying')
       return await cls.reconnect()
+
+  @classmethod
+  async def checkDuplicates(cls, url: str) -> bool:
+    """
+    Checks a url against the database to see if it already exists
+    ---
+    Returns:
+      True: If url Exists
+      False: if url doesn't exist
+    """
+    try:
+      stmt = select(Requests).where(Requests.url == url)
+
+      async with cls.AsyncSession() as session:
+        fetch = await session.execute(stmt)
+
+        if fetch.first() == None:
+          return False
+        else:
+          return True
+
+        await session.close()
+
+    except Exception:
+      return True
 
   @classmethod
   async def createEntry(
@@ -201,6 +227,7 @@ class interactions:
         session.add(new_entry)
         await session.commit()
         logger.trace(f'New Request with ID: {new_entry.id}')
+        await session.close()
 
         return {
           'data': {
@@ -244,6 +271,7 @@ class interactions:
                              item: {item}
                 """)
 
+        await session.close()
         if isinstance(item, Requests):
           logger.trace(item)
           return item
@@ -273,6 +301,7 @@ class interactions:
         )
         session.add(newItem)
         await session.commit()
+        await session.close()
         logger.trace(f'New Download with ID: {newItem.id}')
 
     except Exception as e:
@@ -299,6 +328,7 @@ class interactions:
         await session.execute(query)
 
         await session.commit()
+        await session.close()
 
     except Exception as e:
       logger.error(e)
@@ -314,6 +344,7 @@ class interactions:
         newUser = Users(username=username, password=hash, salt=salt)
         session.add(newUser)
         await session.commit()
+        await session.close()
         logger.trace(f'New User with username of: {username}')
         return 1
     except Exception as e:
@@ -333,6 +364,7 @@ class interactions:
       async with cls.AsyncSession() as session:
         result = await session.execute(query)
         user: Users = result.scalar_one_or_none()
+        await session.close()
 
         if result == None:
           return None
@@ -365,6 +397,7 @@ class interactions:
         newAuthor = Authors(author=author_name)
         session.add(newAuthor)
         await session.commit()
+        await session.close()
         logger.trace(f'New User with username of: {author_name}')
         return 1
 
@@ -394,6 +427,8 @@ class interactions:
       async with cls.AsyncSession() as session:
         result = await session.execute(query)
         item: Requests = result.scalar_one_or_none()
+        await session.close()
+
         logger.debug(f"""
                              result: {result.__dict__}
                              item: {item}

@@ -49,9 +49,6 @@ class meta:
     ---
     """
     opts = properties.metadata_opts()
-    # if flat:
-    #  opts.pop('extract_flat')
-    #  opts['extract_flat'] = True
 
     with yt_dlp.YoutubeDL(opts) as ydl:  # type: ignore
       metadata = ydl.extract_info(url, download=False)
@@ -182,6 +179,7 @@ class meta:
       r'\s*[\(\[]\s*[^\)\]]*production[^\)\]]*[\)\]]',
       r'\s*[\(\[]\s*[^\)\]]*studios?[^\)\]]*[\)\]]',
       r'\s*[\(\[]\s*[^\)\]]*presents[^\)\]]*[\)\]]',
+      r'\/',
     ]
 
     for pattern in junk_patterns:

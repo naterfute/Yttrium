@@ -266,7 +266,7 @@ try:
       logger.info(f'begin download for {url}')
 
       logger.trace('retrieving metadata')
-      metadata = meta.retrieve(url)
+      meta.retrieve(url)
 
       if type(metadata) == None:
         logger.error('metadata is None, returning')
