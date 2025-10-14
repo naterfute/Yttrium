@@ -15,5 +15,5 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 EXPOSE 8000
 
-CMD ["python3", "-m", "src", "--fast", "--log-level", "INFO"]
+CMD ["python3", "-m", "src", "--fast", "--log-level", "WARN"]
 
