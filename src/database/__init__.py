@@ -175,11 +175,11 @@ class interactions:
       isengine = isinstance(cls.engine, AsyncEngine)
       async with cls.AsyncSession() as session:
         result = await session.execute(select(1))
-        await session.close()
         if result.scalar() == 1:
           return 1
         else:
           return 0
+        await session.close()
     except Exception as e:
       cls.status = DBConn.DISCONNECTED
       logger.error(f'Connection failed: {str(e)}\n Retrying')
