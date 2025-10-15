@@ -7,6 +7,8 @@ from datetime import datetime
 
 from loguru import logger
 import logging
+
+from concurrent.futures import ThreadPoolExecutor
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.schedulers.background import BackgroundScheduler
 import asyncio
@@ -57,6 +59,8 @@ utils.initapp(app)
 async def startup_handler():
   try:
     await interactions.connect()
+
+    thread_pool = ThreadPoolExecutor(max_workers=1)
     # scheduler = AsyncIOScheduler()
     scheduler = BackgroundScheduler()
 
@@ -68,18 +72,20 @@ async def startup_handler():
 
 
 def scanDatabaseSync():
-  logger.debug('Starting Database Sync')
+  logger.trace('Starting Database Sync')
+  # loop = asyncio.new_event_loop()
+  # asyncio.set_event_loop(loop)
+  asyncio.run(_scan_database_wrapper())
 
-  asyncio.run(scanDatabase())
 
-
-async def scanDatabase():
+async def _scan_database_wrapper():
   await interactions.connect()
   logger.trace('Database Sync Started')
   next_item = await interactions.fetchNextItem()
   if next_item is not None:
     manager = Downloader()
     await manager.startDownload(str(next_item.url))
+  return
 
 
 @app.get('/info')
@@ -146,8 +152,10 @@ async def ping(request):
 async def download(request, path_params: PathParams):
   """Takes a url and downloads the supplied video/song/playlist"""
   url: str = path_params['url']
+  selfish = interactions()
+  await selfish.connect()
 
-  duplicates: bool = await interactions.checkDuplicates(url)
+  duplicates: bool = await selfish.checkDuplicates(url)
   if duplicates:
     logger.trace('Url Duplicate')
     return {
@@ -161,8 +169,11 @@ async def download(request, path_params: PathParams):
   #  return 'Failed to Fetch Metadata'
   # except Exception:
   #  return {'data': {'message': 'Failed to Fetch Metadata', 'error': '2001'}}
-
-  return await interactions.createEntry(url, 'youtube')
+  if url == 'none':
+    return {'data': {'message': f'Url is "None"', 'error': '3001'}}
+  toreturn = await selfish.createEntry(url, 'youtube')
+  await selfish.disconnect()
+  return toreturn
 
 
 @app.post('/login')

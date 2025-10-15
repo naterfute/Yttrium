@@ -180,8 +180,10 @@ class interactions:
         fetch = await session.execute(stmt)
 
         if fetch.first() == None:
+          await session.close()
           return False
         else:
+          await session.close()
           return True
 
     except Exception:

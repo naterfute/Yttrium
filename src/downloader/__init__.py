@@ -288,7 +288,7 @@ try:
 
       opts = self.ydl_opts
 
-      logger.trace('Getting Metadata')
+      logger.trace(f'Processing Metadata for {url}')
 
       # author_match = self.matchAuthors(metadata)
 
