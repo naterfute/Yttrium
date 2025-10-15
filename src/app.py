@@ -146,24 +146,22 @@ async def download(request, path_params: PathParams):
   """Takes a url and downloads the supplied video/song/playlist"""
   url: str = path_params['url']
 
-  # TODO: check against the database before getting metadata
-
   duplicates: bool = await interactions.checkDuplicates(url)
   if duplicates:
     logger.trace('Url Duplicate')
     return {
       'data': {'message': f'Duplicate Entry. Link already exists', 'error': '3000'}
     }
-  try:
-    metadata = meta.retrieve(url, flat=True)
-    if metadata is None:
-      return 'Failed to Fetch Metadata'
-    if metadata[0].extractor is None:
-      return 'Failed to Fetch Metadata'
-  except Exception:
-    return {'data': {'message': 'Failed to Fetch Metadata', 'error': '2001'}}
+  # try:
+  # metadata = meta.retrieve(url, flat=True)
+  # if metadata is None:
+  #  return 'Failed to Fetch Metadata'
+  # if metadata[0].extractor is None:
+  #  return 'Failed to Fetch Metadata'
+  # except Exception:
+  #  return {'data': {'message': 'Failed to Fetch Metadata', 'error': '2001'}}
 
-  return await interactions.createEntry(url, metadata[0].extractor)
+  return await interactions.createEntry(url, 'youtube')
 
 
 @app.post('/login')
