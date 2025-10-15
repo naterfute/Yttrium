@@ -217,6 +217,7 @@ try:
 
     def stringifyAuthors(self, authors: list):
       returnauthors: str = ''
+      logger.error(authors)
       for author in authors[:-1]:
         returnauthors += f'{author} '
       returnauthors += f'{authors[-1]}'
@@ -281,7 +282,6 @@ try:
         pass
 
       else:
-        logger.error('Returning')
         logger.error(type(metadata))
         logger.error(metadata)
         return
@@ -294,10 +294,7 @@ try:
 
       for data in metadata:
         logger.debug(data)
-        if data.author is not None:
-          author = meta.sanatize_author(data.author)
-        else:
-          author = meta.sanatize_author(data.author)
+        author = meta.sanatize_author(data.author)
 
         if data.extractor == 'youtube' and data.author and data.album == None:
           # NOTE: Single Video Authored, No Album
@@ -345,6 +342,7 @@ try:
         pathOpts = pathOpts.replace(' ', '-')
 
         self.playlist_url = url
+
         index = 0
         for x in metadata:
           if config.restrictfilenames:
@@ -359,6 +357,7 @@ try:
           if index == len(metadata):
             break
         await self.db.playlistDownloaded(self.playlist_url, str(self.Album))
+        return
 
     def buildjson(self):
       buildjson: dict = {

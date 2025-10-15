@@ -9,7 +9,7 @@ class properties:
   @staticmethod
   def metadata_opts():
     ydl_opts = {
-      # 'quiet': True,
+      'quiet': True,
       'extract_flat': False,
       'cookiefile': 'cookies.txt',
       'skip_download': True,
@@ -74,16 +74,16 @@ class meta:
           extractor = x.get('extractor')
           url = str(x.get('webpage_url'))
 
-          if artists != None:
-            author_actual = str(artists)[2:-2]
-          elif creators != None:
+          if artists is not None:
+            author_actual = artists[0]
+          elif creators is not None:
             author_actual = str(creators)[2:-2]
-          elif verified != None:
+          elif verified is not None:
             author_actual = str(channel)[2:-2]
           else:
             author_actual = None
 
-          if extractor == None:
+          if extractor is None:
             return
 
           newMeta = properties.metadata(

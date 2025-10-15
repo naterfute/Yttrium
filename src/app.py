@@ -30,14 +30,15 @@ from src.utils.hash import auth
 
 
 apscheduler_logger = logging.getLogger('apscheduler')
-apscheduler_logger.setLevel(logging.NOTSET)
+apscheduler_logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 handler.setLevel(logging.ERROR)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
 apscheduler_logger.addHandler(handler)
 if not config.debug or config.trace:
-  logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
+  # logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
+  logging.getLogger('apscheduler.scheduler').setLevel(logging.ERROR)
 
 app = Robyn(__file__)
 

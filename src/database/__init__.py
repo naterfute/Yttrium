@@ -263,7 +263,6 @@ class interactions:
     """
     try:
       logger.trace(f'Marking video: {url} as downloaded')
-      logger.error(f'Marking video: {url} as downloaded')
       async with cls.AsyncSession() as session:
         newItem = Downloaded(
           playlist_url=playlisturl,
