@@ -5,10 +5,9 @@ from typing import Generator, Optional, Any
 from loguru import logger
 import sys
 from enum import Enum
-
+from os import path
 import musicbrainzngs
 import functools
-
 from .metadata import meta, properties
 from src.config import config
 from src.database import interactions
@@ -104,12 +103,13 @@ try:
     def __init__(
       self,
       host: Optional[str] = None,
-      download_path: Optional[str] = 'downloads/',
+      # download_path: Optional[str] = 'downloads',
     ):
       self.db = interactions
       if not host == None:
         self.host = host
-        self.download_path = download_path
+
+      self.download_path = config.downloadPath
 
     def progress_hook(self, d):
       d = munchify(d)
@@ -185,8 +185,12 @@ try:
 
     @property
     def ydl_opts(self):
+      # TODO: Make sleep-requests and sleep-interval min/max into config's
       ydl_opts = {
         'ratelimit': config.ratelimit,  # Kilobytes
+        'min-sleep-interval': 5,
+        'max-sleep-interval': 30,
+        'sleep-requests': 5,
         'verbose': True if config.debug is True else False,
         'cookiefile': 'cookies.txt',
         'restrictfilenames': config.restrictfilenames,
@@ -346,11 +350,16 @@ try:
         index = 0
         for x in metadata:
           if config.restrictfilenames:
-            opts['outtmpl'] = (
-              f'downloads/{pathOpts}{index}--[%(id)s]--{x.sanatized_title}.%(ext)s'
+            opts['outtmpl'] = path.join(  # type: ignore
+              self.download_path,  # type: ignore
+              f'{pathOpts}{index}--[%(id)s]--{x.sanatized_title}.%(ext)s',
             )
           else:
-            opts['outtmpl'] = f'downloads/{pathOpts}{index} {x.sanatized_title}.%(ext)s'
+            opts['outtmpl'] = (
+              f'{self.download_path}/{pathOpts}{index} {x.sanatized_title}.%(ext)s'
+            )
+
+          logger.critical(opts['outtmpl'])
           with yt_dlp.YoutubeDL(opts) as ydl:  # type: ignore
             ydl.download(x.url)
           index += 1

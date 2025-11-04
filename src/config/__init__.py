@@ -17,15 +17,12 @@ class DbConfig(BaseModel):
 
 class AppConfig(BaseModel):
   host: str
-  # port: int
-  # username: str
-  # password: str
   debug: bool
   trace: bool
   ratelimit: int
   codec: str
   restrictfilenames: bool
-  # dbScanRate: int
+  downloadPath: str = 'downloads'
   db: DbConfig
 
 
