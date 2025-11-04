@@ -349,15 +349,11 @@ try:
 
         index = 0
         for x in metadata:
-          if config.restrictfilenames:
-            opts['outtmpl'] = path.join(  # type: ignore
-              self.download_path,  # type: ignore
-              f'{pathOpts}{index}--[%(id)s]--{x.sanatized_title}.%(ext)s',
-            )
-          else:
-            opts['outtmpl'] = (
-              f'{self.download_path}/{pathOpts}{index} {x.sanatized_title}.%(ext)s'
-            )
+          opts['outtmpl'] = path.join(  # type: ignore
+            self.download_path,  # type: ignore
+            pathOpts,
+            f'{index}--[%(id)s]--{x.sanatized_title}.%(ext)s',
+          )
 
           logger.critical(opts['outtmpl'])
           with yt_dlp.YoutubeDL(opts) as ydl:  # type: ignore
