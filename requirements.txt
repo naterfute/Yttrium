@@ -44,4 +44,4 @@ tzlocal==5.2
 uvloop==0.21.0
 watchdog==4.0.1
 wcwidth==0.2.14
-yt-dlp==2025.9.26
+yt-dlp==2025.10.22

@@ -109,7 +109,7 @@ try:
       if not host == None:
         self.host = host
 
-      self.download_path = config.downloadPath
+      self.download_dir = config.downloadPath
 
     def progress_hook(self, d):
       d = munchify(d)
@@ -303,14 +303,12 @@ try:
         if data.extractor == 'youtube' and data.author and data.album == None:
           # NOTE: Single Video Authored, No Album
           pathOpts: str = f'{author}/{data.sanatized_title}'
-          logger.trace(pathOpts)
           logger.trace(1)
 
         elif data.extractor == 'youtube' and data.author and data.album:
           # NOTE: Single Video Authored, With Album
           pathOpts: str = f'{author}/{data.album}/'
-          logger.trace(pathOpts)
-          logger.trace('Author with Album')
+          logger.trace('2')
 
         elif (
           data.extractor == 'youtube:playlist'
@@ -319,13 +317,11 @@ try:
         ):
           # NOTE: Playlist, No Album, with Artist
           pathOpts: str = f'{author}/{unknown_album}/'
-          logger.trace(pathOpts)
           logger.trace(3)
 
         elif data.extractor == 'youtube:playlist' and data.author:
           # NOTE: Playlist, With Album
           pathOpts: str = f'{author}/{data.album}/'
-          logger.trace(pathOpts)
           logger.trace(4)
 
         elif (
@@ -333,7 +329,6 @@ try:
         ):
           # NOTE: Playlist, no Author with Album(shouldn't be possible?)
           pathOpts: str = f'{unkown_artist}/{data.album}/'
-          logger.trace(pathOpts)
           logger.trace(5)
 
         # WARN: These are only last resort. These paths will make it extremly hard for apps such as plex/jellyfin
@@ -344,24 +339,36 @@ try:
           logger.trace(6)
 
         pathOpts = pathOpts.replace(' ', '-')
+        pathOpts = pathOpts.replace("'", '')
 
         self.playlist_url = url
 
         index = 0
+        error_index = 0
         for x in metadata:
+          error_index = 0
+
+          opts['outtmpl'] = ''
           opts['outtmpl'] = path.join(  # type: ignore
-            self.download_path,  # type: ignore
+            self.download_dir,
             pathOpts,
-            f'{index}--[%(id)s]--{x.sanatized_title}.%(ext)s',
+            f'{index}--{x.sanatized_title}.%(ext)s',
           )
 
-          logger.critical(opts['outtmpl'])
-          with yt_dlp.YoutubeDL(opts) as ydl:  # type: ignore
-            ydl.download(x.url)
+          try:
+            with yt_dlp.YoutubeDL(opts) as ydl:  # type: ignore
+              logger.info(f'Downloading {url}')
+              ydl.download(x.url)
+          except Exception as e:
+            logger.error(e)
+            logger.error(f'An error occured while downloading\n Attempting Recovery')
+
           index += 1
           if index == len(metadata):
             break
+
         await self.db.playlistDownloaded(self.playlist_url, str(self.Album))
+
         return
 
     def buildjson(self):
