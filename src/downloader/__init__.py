@@ -70,13 +70,15 @@ try:
         self.info(msg)
 
     def info(self, msg):
+      logger.info(msg)
       pass
 
     def warning(self, msg):
+      logger.warning(msg)
       pass
 
     def error(self, msg):
-      print(msg)
+      logger.error(msg)
       pass
 
   class Downloader:
@@ -99,6 +101,8 @@ try:
     downloading = False
     speed = None
     sanatized_title = ''
+    index = 0
+    indexLen = 0
 
     def __init__(
       self,
@@ -167,8 +171,8 @@ try:
       if d.status == 'finished':  # type: ignore
         logger.trace('PostProcessor Hook finished')
         if not self.PostProcessorStarted:
-          loop = asyncio.get_running_loop()
-          result = asyncio.create_task(
+          _ = asyncio.get_running_loop()
+          _ = asyncio.create_task(
             self.db.newDownloaded(
               playlisturl=self.playlist_url,
               url=self.url,
@@ -182,6 +186,9 @@ try:
           self.Status = 'Finished'
 
         self.buildjson()
+
+    def get_track_index(self) -> str:
+      return f'{self.index}/{self.indexLen}'
 
     @property
     def ydl_opts(self):
@@ -215,13 +222,20 @@ try:
           {'add_metadata': 'True', 'key': 'FFmpegMetadata'},
           {'already_have_thumbnail': False, 'key': 'EmbedThumbnail'},
         ],
+        'postprocessor_args': {
+          'ffmpeg': [
+            '-metadata',
+            f'track={self.get_track_index()}',
+            '-metadata',
+            f'album_artist={self.author}',
+          ]
+        },
       }
 
       return ydl_opts
 
     def stringifyAuthors(self, authors: list):
       returnauthors: str = ''
-      logger.error(authors)
       for author in authors[:-1]:
         returnauthors += f'{author} '
       returnauthors += f'{authors[-1]}'
@@ -290,14 +304,11 @@ try:
         logger.error(metadata)
         return
 
-      opts = self.ydl_opts
-
       logger.trace(f'Processing Metadata for {url}')
 
       # author_match = self.matchAuthors(metadata)
 
       for data in metadata:
-        logger.debug(data)
         author = meta.sanatize_author(data.author)
 
         if data.extractor == 'youtube' and data.author and data.album == None:
@@ -344,12 +355,18 @@ try:
         self.playlist_url = url
 
         index = 0
-        error_index = 0
+        # error_index = 0
+        self.indexLen = len(metadata)
         for x in metadata:
-          error_index = 0
+          self.author = pathOpts.split('/')[0]
+          self.index = index + 1
+          self.url = x.url
+          # error_index = 0
+
+          opts = self.ydl_opts
 
           opts['outtmpl'] = ''
-          opts['outtmpl'] = path.join(  # type: ignore
+          opts['outtmpl'] = path.join(
             self.download_dir,
             pathOpts,
             f'{index}--{x.sanatized_title}.%(ext)s',

@@ -73,6 +73,7 @@ class meta:
           verified = x.get('channel_is_verified')
           extractor = x.get('extractor')
           url = str(x.get('webpage_url'))
+          leftoover_metadata = str(x)
 
           if artists is not None:
             author_actual = artists[0]
@@ -98,6 +99,7 @@ class meta:
             channel=channel,
             verified=verified,
             url=url,
+            metadata=leftoover_metadata,
           )
 
           logger.debug(newMeta)
