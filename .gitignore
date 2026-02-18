@@ -17,6 +17,9 @@ requirements_new.txt
 .client/
 .server/
 .yt-dlfConfig.yaml
+config.yaml
 docker-compose.yml
 *__pycache__*
 .token.json
+.robyn
+cookies.txt

@@ -66,7 +66,10 @@ class meta:
         try:
           creators = x.get('creators')
           artists = x.get('artists')
-          album = x.get('album')
+          try:
+            album = x.get('album')
+          except:
+            logger.trace('No album exists in metadata')
           song_title = x.get('title')
           title = x.get('alt_title')
           channel = x.get('channel')

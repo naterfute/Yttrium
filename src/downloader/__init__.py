@@ -161,7 +161,8 @@ try:
       d = munchify(d)
       if d.status == 'started':  # type: ignore
         info = munchify(d['info_dict'])  # type: ignore
-        self.Album = info.album  # type: ignore
+
+        self.Album = getattr(info, 'album', None)
         self.url = info.webpage_url  # type: ignore
         self.title = info.title  # type: ignore
         self.download_path = info.filepath  # type: ignore
@@ -378,13 +379,17 @@ try:
               ydl.download(x.url)
           except Exception as e:
             logger.error(e)
-            logger.error(f'An error occured while downloading\n Attempting Recovery')
+            logger.error(f'An error occured while downloading\n')
 
           index += 1
           if index == len(metadata):
             break
-
-        await self.db.playlistDownloaded(self.playlist_url, str(self.Album))
+        if self.Album != None:
+          await self.db.playlistDownloaded(self.playlist_url, str(self.Album))
+        elif self.title != None:
+          await self.db.playlistDownloaded(self.playlist_url, str(self.title))
+        else:
+          logger.error(f'Failed to download {self.playlist_url}')
 
         return
 
